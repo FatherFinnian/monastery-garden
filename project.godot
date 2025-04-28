@@ -11,8 +11,14 @@ config_version=5
 [application]
 
 config/name="MonasteryGardenDev"
+run/main_scene="uid://cx3lqds4nk48h"
 config/features=PackedStringArray("4.4", "GL Compatibility")
 config/icon="res://icon.svg"
+
+[autoload]
+
+GameManager="*res://scripts/GameManager.gd"
+InventoryManager="*res://scripts/InventoryManager.gd"
 
 [rendering]
 

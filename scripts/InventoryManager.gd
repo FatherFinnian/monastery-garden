@@ -21,12 +21,20 @@ var watering_pot_level: int = 0
 const WATERING_POT_CAPACITY: int = 5 # Max water charges
 
 # Equipped tool (optional for now, but placeholder)
-var equipped_tool: String = "" 
+var equipped_tool: String = ""
 
 func _ready() -> void:
 	print("InventoryManager ready.")
 	# Initialize starting inventory based on TDD/GDD
 	_initialize_inventory()
+
+	# ── NEW: listen for the calendar tick coming from TimeSystem ──
+	# When the EventBus fires week_advanced, call our handler.
+	# The signature of the signal is (int new_week, StringName new_season).
+	EventBus.week_advanced.connect(_on_week_advanced)
+
+func _on_week_advanced(new_week: int, _season: StringName) -> void:
+	check_completed_repairs(new_week)
 
 func _initialize_inventory() -> void:
 	# Starting Tools (Durability based on TDD)
@@ -43,10 +51,10 @@ func _initialize_inventory() -> void:
 
 	# Starting Misc
 	add_item("Fertilizer", 1) # Start with one fertilizer? (as per TDD suggestion)
-	
+
 	# Set initial water level
 	watering_pot_level = WATERING_POT_CAPACITY
-	
+
 	print("Initial Inventory: ", items)
 	print("Initial Tools: ", tools)
 	print("Watering Pot Level: ", watering_pot_level, "/", WATERING_POT_CAPACITY)
@@ -146,16 +154,16 @@ func refill_watering_pot() -> void:
 # --- Tool Repair --- (Basic structure as per TDD)
 func start_tool_repair(tool_name: String, repair_duration_weeks: int) -> void:
 	if is_tool_broken(tool_name) and not tools_under_repair.has(tool_name):
-		# Requires GameManager access to get current week
-		if GameManager: # Check if GameManager Autoload is available
-			var current_game_week = GameManager.current_week
+		# Requires TimeSystem access to get current week
+		if TimeSystem: # Check if TimeSystem Autoload is available
+			var current_game_week = TimeSystem.current_week
 			var completion_week = current_game_week + repair_duration_weeks
 			tools_under_repair[tool_name] = completion_week
 			tools.erase(tool_name) # Remove from active tools while being repaired
 			inventory_updated.emit()
 			print(tool_name, " sent for repair. Ready on week ", completion_week)
 		else:
-			printerr("Cannot start repair: GameManager not found.")
+			printerr("Cannot start repair: TimeSystem not found.")
 	elif tools_under_repair.has(tool_name):
 		print(tool_name, " is already under repair.")
 	elif not is_tool_broken(tool_name):
@@ -166,11 +174,11 @@ func check_completed_repairs(current_game_week: int) -> Array[String]:
 	for tool_name in tools_under_repair:
 		if current_game_week >= tools_under_repair[tool_name]:
 			completed_tools.append(tool_name)
-	
+
 	# Process completions outside the loop to avoid modifying dictionary during iteration
 	for tool_name in completed_tools:
 		complete_tool_repair(tool_name)
-		
+
 	return completed_tools # Return list of tools just completed (for notifications)
 
 func complete_tool_repair(tool_name: String) -> void:
@@ -186,7 +194,7 @@ func complete_tool_repair(tool_name: String) -> void:
 			"Mattock": restored_durability = 30
 			# Add other repairable tools here if needed
 			_: restored_durability = 10 # Default fallback
-			
+
 		add_tool(tool_name, restored_durability) # Use add_tool to put it back
 		tool_repaired.emit(tool_name)
 		# No need for inventory_updated here as add_tool emits it
